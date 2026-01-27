@@ -1,8 +1,7 @@
 # SPECTRE Fleet - Project Status
 
 **Last Updated**: 2026-01-27
-**Phase**: 1 (Security Infrastructure) - **COMPLETE** ✅
-**Next Phase**: 2 (Observability)
+**Phase**: 2 (Observability) - **IN PROGRESS** ⏳
 **Architecture**: Hybrid (Core Infrastructure + Separate Domain Services)
 
 ---
@@ -24,36 +23,39 @@
 *Deliverables validated: Monorepo, Core Crates, Event Bus, Infrastructure.*
 
 ### Phase 1: Security Infrastructure - ✅ COMPLETE (100%)
+*Deliverables validated: spectre-secrets, spectre-proxy, end-to-end integration.*
+
+### Phase 2: Observability - ⏳ IN PROGRESS (50%)
 
 **Completed Deliverables:**
 
-#### 1. ✅ spectre-secrets (Secret Management)
+#### 1. ✅ spectre-observability (Library)
 - **Features**:
-  - Secret storage engine (InMemory for MVP)
-  - Crypto engine (AES-GCM/XOR primitives for dev)
-  - Rotation logic (Manual + Time-based)
-  - NATS integration for secret events
-- **Tests**: Unit tests + Rotation logic verified
+  - Unified `init()` for Logs, Traces, and Metrics
+  - OpenTelemetry (OTLP) Tracing support (auto-configured via env)
+  - Prometheus Metrics support (`gather_metrics`)
+  - Integration with `tracing-subscriber` (JSON/Pretty)
 
-#### 2. ✅ spectre-proxy (Zero-Trust Gateway)
-- **Features**:
-  - Axum-based HTTP Gateway
-  - Authentication Middleware (Bearer Token)
-  - Rate Limiting (Token Bucket)
-  - Circuit Breaker pattern
-  - Request Routing to NATS
-- **Tests**: E2E Integration (HTTP -> Proxy -> NATS)
+**In Progress / Next:**
 
-#### 3. ✅ Integration
-- All services verified via `run-tests.sh`
-- End-to-end flow operational
+#### 2. ⏳ Infrastructure & Dashboard
+- **Tasks**:
+  - Add Jaeger/Tempo to `docker-compose.yml`
+  - Add Prometheus to `docker-compose.yml`
+  - Add Grafana to `docker-compose.yml`
+  - Create standard dashboards
+
+#### 3. ⏳ Service Integration
+- **Tasks**:
+  - Expose `/metrics` endpoint in `spectre-proxy`
+  - Verify trace propagation across NATS
 
 ---
 
 ## 📊 Statistics
 
 ### Code Metrics
-- **Total Crates**: 4 (spectre-core, spectre-events, spectre-proxy, spectre-secrets)
+- **Total Crates**: 4 (spectre-core, spectre-events, spectre-proxy, spectre-secrets, spectre-observability)
 - **Test Count**: ~35 tests (Unit + Integration)
 - **Test Coverage**: ~92% average
 
@@ -64,82 +66,9 @@
 
 ---
 
-## 🚀 Next Steps (Phase 2: Observability)
-
-**Focus**: Distributed Tracing & Metrics
-
-1. **spectre-observability**:
-   - Implement OpenTelemetry export
-   - Connect to TimescaleDB for metrics
-   - Connect to Neo4j for dependency graphing
-
-2. **Dashboard**:
-   - Setup Grafana (via Docker Compose)
-   - Create dashboards for System Metrics & Event Throughput
-
----
-
-## 🔧 Recent Fixes
-
-### Issue: Test Suite False Positives
-**Problem**: `run-tests.sh` was masking compilation errors in tests.
-**Fix**: Added `set -o pipefail` and corrected integration test targets.
-**Status**: ✅ Fixed
-
-### Issue: Spectre Secrets Linter Errors
-**Problem**: Unused imports and variables in crypto implementation.
-**Fix**: Cleaned up `crypto.rs` and implemented `Default` for `RotationEngine`.
-**Status**: ✅ Fixed
-
----
-
 ## 📞 Quick Commands
 
-### Development
 ```bash
-# Enter dev environment
-nix develop
-
-# Build all crates
-cargo build
-
-# Run all tests (The Golden Command)
+# Run full test suite (Unit, Integration, Lint, Fmt)
 ./scripts/run-tests.sh
 ```
-
-### Infrastructure
-```bash
-# Start all services
-docker-compose up -d
-
-# Stop all
-docker-compose down
-```
-
----
-
-## 📈 Progress Visualization
-
-```
-Phase 0: Foundation
-███████████████████████████████████████████████████ 100% COMPLETE ✅
-
-Phase 1: Security Infrastructure
-███████████████████████████████████████████████████ 100% COMPLETE ✅
-
-Phase 2: Observability
-░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0% Planned 📅
-
-Overall Progress: ██████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 28% (4/14 weeks)
-```
-
----
-
-## 👥 Contributors
-
-- **kernelcore** - Architecture, implementation
-- **Gemini Agent** - Quality Assurance, Debugging, Documentation
-
----
-
-**Status**: ✅ Phase 1 Complete - Ready for Phase 2 (Observability)
