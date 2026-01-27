@@ -4,7 +4,7 @@ use crate::event::Event;
 use async_nats::{Client, ConnectOptions, ServerAddr};
 use spectre_core::{Result, SpectreError};
 use std::time::Duration;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// EventBus configuration
 #[derive(Debug, Clone)]
@@ -38,6 +38,7 @@ impl Default for EventBusConfig {
 /// Wraps the NATS client with SPECTRE-specific functionality.
 pub struct EventBus {
     client: Client,
+    #[allow(dead_code)]
     config: EventBusConfig,
 }
 
@@ -72,22 +73,21 @@ impl EventBus {
         }
 
         // Build connection options
-        let options = ConnectOptions::new()
-            .name(&config.name);
-            // .max_reconnects(Some(config.max_reconnects as usize))
-            /*
-            .reconnect_delay_callback(move |attempts| {
-                let delay = config.reconnect_delay * attempts as u32;
-                warn!(attempts, ?delay, "NATS reconnecting");
-                delay
-            })
-            .disconnect_callback(|| {
-                warn!("NATS disconnected");
-            })
-            .reconnect_callback(|| {
-                info!("NATS reconnected");
-            });
-            */
+        let options = ConnectOptions::new().name(&config.name);
+        // .max_reconnects(Some(config.max_reconnects as usize))
+        /*
+        .reconnect_delay_callback(move |attempts| {
+            let delay = config.reconnect_delay * attempts as u32;
+            warn!(attempts, ?delay, "NATS reconnecting");
+            delay
+        })
+        .disconnect_callback(|| {
+            warn!("NATS disconnected");
+        })
+        .reconnect_callback(|| {
+            info!("NATS reconnected");
+        });
+        */
 
         // Connect
         let client = options
@@ -137,12 +137,7 @@ impl EventBus {
             self.client.request(subject.clone(), payload.into()),
         )
         .await
-        .map_err(|_| {
-            SpectreError::timeout(
-                format!("request to {}", subject),
-                timeout.as_secs(),
-            )
-        })?
+        .map_err(|_| SpectreError::timeout(format!("request to {}", subject), timeout.as_secs()))?
         .map_err(|e| SpectreError::event_bus(format!("Request failed: {}", e)))?;
 
         let response_str = String::from_utf8(response.payload.to_vec())
@@ -213,9 +208,7 @@ mod tests {
         use crate::event::EventType;
         use spectre_core::ServiceId;
 
-        let bus = EventBus::connect("nats://localhost:4222")
-            .await
-            .unwrap();
+        let bus = EventBus::connect("nats://localhost:4222").await.unwrap();
 
         let event = Event::new(
             EventType::SystemMetrics,

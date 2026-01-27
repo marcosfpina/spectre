@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "../neutron"
+		},
+		{
+			"path": "../cerebro"
+		},
+		{
+			"path": "../phantom"
+		},
+		{
+			"path": "../adr-ledger"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {}
+}

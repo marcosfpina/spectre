@@ -6,6 +6,7 @@
 
 set -e  # Exit on error
 set -u  # Exit on undefined variable
+set -o pipefail # Exit if any command in a pipe fails
 
 # Colors for output
 RED='\033[0;31m'
@@ -164,7 +165,7 @@ run_integration_tests() {
     log_info "Running integration tests..."
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-    if cargo test --test test_event_bus -- --test-threads=1 --nocapture 2>&1 | tee /tmp/spectre-test-integration.log; then
+    if cargo test --tests -- --test-threads=1 --nocapture 2>&1 | tee /tmp/spectre-test-integration.log; then
         log_success "✅ Integration tests passed"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else

@@ -32,7 +32,8 @@ impl SecretStorage for InMemoryStorage {
 
     async fn retrieve(&self, id: &SecretId) -> Result<Secret> {
         let secrets = self.secrets.read().await;
-        secrets.get(id)
+        secrets
+            .get(id)
             .cloned()
             .ok_or_else(|| anyhow!("Secret not found"))
     }

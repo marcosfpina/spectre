@@ -182,11 +182,7 @@ pub struct Event {
 
 impl Event {
     /// Create a new event
-    pub fn new(
-        event_type: EventType,
-        source_service: ServiceId,
-        payload: EventPayload,
-    ) -> Self {
+    pub fn new(event_type: EventType, source_service: ServiceId, payload: EventPayload) -> Self {
         Self {
             event_id: Uuid::new_v4(),
             event_type,

@@ -11,8 +11,8 @@ pub struct AppError(pub SpectreError);
 /// Map SpectreError to Axum response
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let status = StatusCode::from_u16(self.0.status_code())
-            .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let status =
+            StatusCode::from_u16(self.0.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
 
         let body = Json(json!({
             "error": {

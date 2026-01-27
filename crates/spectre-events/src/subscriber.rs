@@ -80,10 +80,9 @@ impl Subscriber {
 
     /// Unsubscribe
     pub async fn unsubscribe(mut self) -> Result<()> {
-        self.nats_subscriber
-            .unsubscribe()
-            .await
-            .map_err(|e| spectre_core::SpectreError::event_bus(format!("Unsubscribe failed: {}", e)))
+        self.nats_subscriber.unsubscribe().await.map_err(|e| {
+            spectre_core::SpectreError::event_bus(format!("Unsubscribe failed: {}", e))
+        })
     }
 }
 

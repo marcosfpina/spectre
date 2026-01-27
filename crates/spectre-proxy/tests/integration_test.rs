@@ -45,7 +45,12 @@ async fn test_e2e_scenario() {
     let client = reqwest::Client::new();
     let mut up = false;
     for _ in 0..20 {
-        if client.get(format!("{}/health", BASE_URL)).send().await.is_ok() {
+        if client
+            .get(format!("{}/health", BASE_URL))
+            .send()
+            .await
+            .is_ok()
+        {
             up = true;
             break;
         }
@@ -54,7 +59,11 @@ async fn test_e2e_scenario() {
     assert!(up, "Server failed to start");
 
     // 2. Health Check
-    let resp = client.get(format!("{}/health", BASE_URL)).send().await.unwrap();
+    let resp = client
+        .get(format!("{}/health", BASE_URL))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
     // 3. Auth Rejection (Missing Token)

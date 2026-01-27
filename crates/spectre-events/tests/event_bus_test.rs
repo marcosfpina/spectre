@@ -7,7 +7,7 @@ use spectre_core::{Result, ServiceId};
 use spectre_events::{Event, EventBus, EventHandler, EventType, Subscriber};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
 
 /// Test: Connect to NATS
 #[tokio::test]
@@ -63,9 +63,7 @@ async fn test_03_subscribe_and_receive() -> Result<()> {
     let mut subscriber = Subscriber::new(nats_sub, "test.event.v1");
 
     // Spawn listener task
-    let listener_task = tokio::spawn(async move {
-        subscriber.listen(handler).await
-    });
+    let listener_task = tokio::spawn(async move { subscriber.listen(handler).await });
 
     // Give subscriber time to start
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -115,9 +113,7 @@ async fn test_04_request_reply() -> Result<()> {
     let nats_sub = bus.subscribe("llm.request.v1").await?;
     let mut subscriber = Subscriber::new(nats_sub, "llm.request.v1");
 
-    let responder_task = tokio::spawn(async move {
-        subscriber.listen(ResponderHandler).await
-    });
+    let responder_task = tokio::spawn(async move { subscriber.listen(ResponderHandler).await });
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
@@ -201,7 +197,10 @@ async fn test_05_queue_group_load_balancing() -> Result<()> {
     let count1 = received_1.lock().await.len();
     let count2 = received_2.lock().await.len();
 
-    println!("✅ Worker 1 received: {}, Worker 2 received: {}", count1, count2);
+    println!(
+        "✅ Worker 1 received: {}, Worker 2 received: {}",
+        count1, count2
+    );
     assert_eq!(count1 + count2, 10, "Total events received should be 10");
 
     Ok(())
@@ -338,7 +337,10 @@ async fn test_10_batch_publish_performance() -> Result<()> {
         count, elapsed, events_per_sec
     );
 
-    assert!(events_per_sec > 50.0, "Should publish at least 50 events/sec");
+    assert!(
+        events_per_sec > 50.0,
+        "Should publish at least 50 events/sec"
+    );
 
     Ok(())
 }

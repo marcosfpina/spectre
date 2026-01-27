@@ -3,9 +3,7 @@
 //! Provides structured logging with tracing integration.
 
 use crate::{Config, ServiceId};
-use tracing_subscriber::{
-    fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
-};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 /// Initialize logging for a SPECTRE service
 ///
@@ -73,7 +71,9 @@ pub fn init_logging(config: &Config) -> crate::Result<()> {
         .with(json_layer)
         .with(pretty_layer)
         .try_init()
-        .map_err(|e| crate::error::SpectreError::internal(format!("Failed to init logging: {}", e)))?;
+        .map_err(|e| {
+            crate::error::SpectreError::internal(format!("Failed to init logging: {}", e))
+        })?;
 
     tracing::info!(
         service = %service_id,
@@ -120,9 +120,8 @@ mod tests {
 
     #[test]
     fn test_logging_init() {
-        // Can't test actual init (would conflict with other tests)
-        // Just verify config creation works
+        std::env::set_var("SPECTRE_SERVICE_ID", "test-service");
         let config = Config::from_env().unwrap();
-        assert!(!config.observability.log_level.is_empty());
+        assert!(init_logging(&config).is_ok());
     }
 }

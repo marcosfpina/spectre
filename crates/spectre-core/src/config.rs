@@ -133,13 +133,11 @@ fn default_log_level() -> String {
 impl Config {
     /// Load configuration from TOML file
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
-        let content = std::fs::read_to_string(path.as_ref()).map_err(|e| {
-            SpectreError::config(format!("Failed to read config file: {}", e))
-        })?;
+        let content = std::fs::read_to_string(path.as_ref())
+            .map_err(|e| SpectreError::config(format!("Failed to read config file: {}", e)))?;
 
-        toml::from_str(&content).map_err(|e| {
-            SpectreError::config(format!("Failed to parse config file: {}", e))
-        })
+        toml::from_str(&content)
+            .map_err(|e| SpectreError::config(format!("Failed to parse config file: {}", e)))
     }
 
     /// Load configuration from environment variables (fallback)
@@ -147,7 +145,8 @@ impl Config {
         let service_id = std::env::var("SPECTRE_SERVICE_ID")
             .map_err(|_| SpectreError::config("SPECTRE_SERVICE_ID not set"))?;
 
-        let service_name = std::env::var("SPECTRE_SERVICE_NAME").unwrap_or_else(|_| service_id.clone());
+        let service_name =
+            std::env::var("SPECTRE_SERVICE_NAME").unwrap_or_else(|_| service_id.clone());
 
         Ok(Self {
             service: ServiceConfig {
@@ -213,6 +212,7 @@ mod tests {
 
     #[test]
     fn test_config_validation() {
+        std::env::set_var("SPECTRE_SERVICE_ID", "test-service");
         let mut config = Config::from_env().unwrap();
         assert!(config.validate().is_ok());
 

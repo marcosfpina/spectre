@@ -1,14 +1,14 @@
 //! SPECTRE Secrets - Secret storage and rotation engine
 
-pub mod storage;
-pub mod rotation;
 pub mod crypto;
-pub mod types;
 pub mod events;
+pub mod rotation;
+pub mod storage;
+pub mod types;
 
-pub use types::Secret;
-pub use storage::SecretStorage;
 pub use rotation::{RotationEngine, RotationPolicy};
+pub use storage::SecretStorage;
+pub use types::Secret;
 
 #[cfg(test)]
 mod tests {
@@ -16,15 +16,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_secret_flow() {
-        use crate::storage::{InMemoryStorage, SecretStorage};
         use crate::crypto::CryptoEngine;
+        use crate::storage::{InMemoryStorage, SecretStorage};
         use crate::types::{Secret, SecretId, SecretMetadata};
 
         // Setup
         let storage = InMemoryStorage::new();
         // In real usage, salt should be consistent/managed
         let crypto = CryptoEngine::new("test-password", b"test-salt").unwrap();
-        
+
         let secret_id = SecretId(Uuid::new_v4());
         let plaintext = b"super-secret-data";
 

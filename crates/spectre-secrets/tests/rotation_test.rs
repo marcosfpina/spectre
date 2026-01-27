@@ -9,7 +9,7 @@ use uuid::Uuid;
 fn test_should_rotate() {
     let engine = RotationEngine::new();
     let id = SecretId(Uuid::new_v4());
-    
+
     // Case 1: Brand new secret (should not rotate)
     let secret = Secret {
         id: id.clone(),
@@ -51,7 +51,7 @@ fn test_should_rotate() {
 fn test_rotate_increments_version() {
     let engine = RotationEngine::new();
     let id = SecretId(Uuid::new_v4());
-    
+
     let mut secret = Secret {
         id: id.clone(),
         version: 1,
@@ -70,9 +70,13 @@ fn test_rotate_increments_version() {
     assert_eq!(secret.version, 2);
     // Updated at should be very recent
     assert!(Utc::now() - secret.metadata.updated_at < Duration::seconds(1));
-    
+
     match event {
-        spectre_secrets::events::SecretEvent::Rotated { secret_id, old_version, new_version } => {
+        spectre_secrets::events::SecretEvent::Rotated {
+            secret_id,
+            old_version,
+            new_version,
+        } => {
             assert_eq!(secret_id, id);
             assert_eq!(old_version, 1);
             assert_eq!(new_version, 2);

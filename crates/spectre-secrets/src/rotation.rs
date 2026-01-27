@@ -1,5 +1,5 @@
-use crate::types::Secret;
 use crate::events::SecretEvent;
+use crate::types::Secret;
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,12 @@ impl Default for RotationPolicy {
 }
 
 pub struct RotationEngine;
+
+impl Default for RotationEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl RotationEngine {
     pub fn new() -> Self {
