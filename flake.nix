@@ -83,49 +83,198 @@
 
       in
       {
-        # Development shell
-        devShells.default = pkgs.mkShell {
-          buildInputs = commonBuildInputs;
+        # Development shells
+        devShells = {
+          # Default Rust development shell
+          default = pkgs.mkShell {
+            buildInputs = commonBuildInputs;
 
-          shellHook = ''
-            echo "🚀 SPECTRE Fleet Development Environment"
-            echo ""
-            echo "Available services:"
-            echo "  • NATS:         docker-compose up nats"
-            echo "  • TimescaleDB:  docker-compose up timescaledb"
-            echo "  • Neo4j:        docker-compose up neo4j"
-            echo "  • All:          docker-compose up -d"
-            echo ""
-            echo "Rust toolchain: $(rustc --version)"
-            echo "Cargo:          $(cargo --version)"
-            echo "NATS CLI:       $(nats --version 2>/dev/null || echo 'not available')"
-            echo ""
-            echo "Quick start:"
-            echo "  1. docker-compose up -d"
-            echo "  2. cargo build"
-            echo "  3. cargo test"
-            echo ""
+            shellHook = ''
+              echo "🚀 SPECTRE Fleet Development Environment"
+              echo ""
+              echo "Available services:"
+              echo "  • NATS:         docker-compose up nats"
+              echo "  • TimescaleDB:  docker-compose up timescaledb"
+              echo "  • Neo4j:        docker-compose up neo4j"
+              echo "  • All:          docker-compose up -d"
+              echo ""
+              echo "Rust toolchain: $(rustc --version)"
+              echo "Cargo:          $(cargo --version)"
+              echo "NATS CLI:       $(nats --version 2>/dev/null || echo 'not available')"
+              echo ""
+              echo "Quick start:"
+              echo "  1. docker-compose up -d"
+              echo "  2. cargo build"
+              echo "  3. cargo test"
+              echo ""
 
-            # Set environment variables for development
-            export RUST_BACKTRACE=1
-            export RUST_LOG=debug
-            export NATS_URL=nats://localhost:4222
-            export TIMESCALEDB_URL=postgresql://spectre:spectre_dev_password@localhost:5432/spectre_observability
-            export NEO4J_URI=neo4j://localhost:7687
-            export NEO4J_USER=neo4j
-            export NEO4J_PASSWORD=spectre_dev_password
-          '';
+              # Set environment variables for development
+              export RUST_BACKTRACE=1
+              export RUST_LOG=debug
+              export NATS_URL=nats://localhost:4222
+              export TIMESCALEDB_URL=postgresql://spectre:spectre_dev_password@localhost:5432/spectre_observability
+              export NEO4J_URI=neo4j://localhost:7687
+              export NEO4J_USER=neo4j
+              export NEO4J_PASSWORD=spectre_dev_password
+            '';
+          };
+
+          # Kubernetes operations shell
+          kubernetes = pkgs.mkShell {
+            buildInputs = with pkgs; [
+              # Kubernetes tools
+              kubectl
+              kubernetes-helm
+              k9s
+              kustomize
+
+              # Container tools
+              skopeo
+              dive
+
+              # Observability
+              prometheus
+              grafana
+
+              # Development tools
+              jq
+              yq-go
+              git
+            ];
+
+            shellHook = ''
+              echo "☸️  SPECTRE Kubernetes Environment"
+              echo ""
+              echo "Available tools:"
+              echo "  • kubectl:  $(kubectl version --client --short 2>/dev/null || echo 'Kubernetes CLI')"
+              echo "  • helm:     $(helm version --short 2>/dev/null || echo 'Helm package manager')"
+              echo "  • k9s:      Kubernetes TUI"
+              echo ""
+              echo "Nix commands:"
+              echo "  • nix build .#kubernetes-manifests-dev     - Generate dev manifests"
+              echo "  • nix build .#kubernetes-manifests-prod    - Generate prod manifests"
+              echo "  • nix build .#spectre-proxy-image          - Build container image"
+              echo "  • nix run .#deploy-dev                     - Deploy to dev cluster"
+              echo "  • nix run .#deploy-prod                    - Deploy to prod cluster"
+              echo ""
+            '';
+          };
         };
 
-        # Packages (to be implemented)
-        packages = {
-          # Core infrastructure
-          # spectre-proxy = ...;
-          # spectre-observability = ...;
+        # Packages
+        packages =
+          let
+            # Import Kubernetes module
+            k8sModule = import ./nix/kubernetes {
+              inherit (pkgs) lib;
+              inherit pkgs;
+            };
 
-          # Default package
-          default = pkgs.hello; # Placeholder
-        };
+            # Generate Kubernetes manifests
+            mkManifests = env:
+              let
+                manifests = k8sModule.mkManifests k8sModule.environments.${env};
+                yaml = k8sModule.manifestsToYAML manifests;
+              in
+              pkgs.writeTextFile {
+                name = "spectre-k8s-manifests-${env}";
+                text = yaml;
+              };
+          in
+          {
+            # Kubernetes manifests
+            kubernetes-manifests-dev = mkManifests "dev";
+            kubernetes-manifests-prod = mkManifests "prod";
+
+            # Default package
+            default = self.packages.${system}.kubernetes-manifests-dev;
+          };
+
+        # Apps for deployment and operations
+        apps =
+          let
+            mkDeployApp =
+              env:
+              let
+                manifestsPackage = self.packages.${system}."kubernetes-manifests-${env}";
+                imagePackage = self.packages.${system}.spectre-proxy-image;
+              in
+              {
+                type = "app";
+                program = toString (
+                  pkgs.writeShellScript "deploy-${env}" ''
+                    set -euo pipefail
+
+                    echo "🚀 Deploying SPECTRE to ${env} environment"
+                    echo ""
+
+                    # Check kubectl connectivity
+                    if ! ${pkgs.kubectl}/bin/kubectl cluster-info &>/dev/null; then
+                      echo "❌ Error: Cannot connect to Kubernetes cluster"
+                      echo "   Make sure kubectl is configured and cluster is accessible"
+                      exit 1
+                    fi
+
+                    # Load container image to local Docker daemon (optional)
+                    if command -v docker &>/dev/null; then
+                      echo "📦 Loading container image to Docker daemon..."
+                      ${pkgs.skopeo}/bin/skopeo copy \
+                        docker-archive:${imagePackage} \
+                        docker-daemon:${imagePackage.imageName}:${imagePackage.imageTag}
+                    fi
+
+                    # Apply Kubernetes manifests
+                    echo "☸️  Applying Kubernetes manifests..."
+                    ${pkgs.kubectl}/bin/kubectl apply -f ${manifestsPackage}
+
+                    echo ""
+                    echo "✅ Deployment complete!"
+                    echo ""
+                    echo "Check status with:"
+                    echo "  kubectl get pods -l app.kubernetes.io/name=spectre-proxy"
+                    echo "  kubectl logs -l app.kubernetes.io/name=spectre-proxy -f"
+                  ''
+                );
+              };
+          in
+          {
+            # Deployment apps
+            deploy-dev = mkDeployApp "dev";
+            deploy-prod = mkDeployApp "prod";
+
+            # Generate and display manifests
+            show-manifests-dev = {
+              type = "app";
+              program = toString (
+                pkgs.writeShellScript "show-manifests-dev" ''
+                  ${pkgs.coreutils}/bin/cat ${self.packages.${system}.kubernetes-manifests-dev}
+                ''
+              );
+            };
+
+            show-manifests-prod = {
+              type = "app";
+              program = toString (
+                pkgs.writeShellScript "show-manifests-prod" ''
+                  ${pkgs.coreutils}/bin/cat ${self.packages.${system}.kubernetes-manifests-prod}
+                ''
+              );
+            };
+
+            # Load image to Docker daemon
+            load-image = {
+              type = "app";
+              program = toString (
+                pkgs.writeShellScript "load-image" ''
+                  set -euo pipefail
+                  IMAGE=${self.packages.${system}.spectre-proxy-image}
+                  echo "Loading image: $IMAGE"
+                  ${pkgs.docker}/bin/docker load < $IMAGE
+                  echo "✅ Image loaded successfully"
+                ''
+              );
+            };
+          };
 
         # Checks (CI/CD)
         checks = {
