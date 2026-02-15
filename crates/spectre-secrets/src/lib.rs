@@ -1,5 +1,16 @@
+pub mod crypto;
+pub mod events;
+pub mod rotation;
+pub mod storage;
+pub mod types;
+
+// Re-exports
+pub use crypto::{generate_salt, CryptoEngine};
+pub use storage::{InMemoryStorage, SecretStorage};
+pub use types::{SecretId, SecretMetadata};
+
 use anyhow::{Context, Result};
-use secrecy::{ExposeSecret, Secret};
+use secrecy::Secret;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -34,14 +45,13 @@ impl SecretManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-    use tempfile::NamedTempFile;
+    use secrecy::ExposeSecret;
 
     #[test]
     fn test_get_secret_from_env() {
-        env::set_var("TEST_SECRET", "env_value");
-        let secret = SecretManager::get("TEST_SECRET").unwrap();
+        env::set_var("TEST_SECRET_LIB", "env_value");
+        let secret = SecretManager::get("TEST_SECRET_LIB").unwrap();
         assert_eq!(secret.expose_secret(), "env_value");
-        env::remove_var("TEST_SECRET");
+        env::remove_var("TEST_SECRET_LIB");
     }
 }
