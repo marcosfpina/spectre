@@ -1,5 +1,5 @@
 # SPECTRE Fleet Development Environment
-# Services: NATS, TimescaleDB (PostgreSQL), Neo4j
+# Services: NATS, TimescaleDB, Neo4j, Jaeger, Prometheus, Grafana
 
 services:
   # NATS - Message Bus (Primary)
@@ -12,9 +12,9 @@ services:
       - "6222:6222" # Cluster routing
     command:
       [
-        "--http_port=8222", # HTTP monitoring
-        "--jetstream", # Enable JetStream for persistence
-        "--store_dir=/data" # Persistent storage
+        "--http_port=8222",
+        "--jetstream",
+        "--store_dir=/data"
       ]
     volumes:
       - nats-data:/data
@@ -34,9 +34,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: spectre
-      POSTGRES_PASSWORD: spectre_dev_password # Change in production!
-      POSTGRES_DB: spectre_observability
+      POSTGRES_USER: ${POSTGRES_USER:-spectre}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-spectre_observability}
     volumes:
       - timescaledb-data:/var/lib/postgresql/data
       - ./scripts/init-timescaledb.sql:/docker-entrypoint-initdb.d/init.sql
@@ -57,7 +57,7 @@ services:
       - "7474:7474" # HTTP
       - "7687:7687" # Bolt
     environment:
-      NEO4J_AUTH: neo4j/spectre_dev_password # Change in production!
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set in .env}
       NEO4J_dbms_memory_heap_max__size: 512M
       NEO4J_dbms_memory_pagecache_size: 256M
     volumes:
@@ -67,21 +67,52 @@ services:
       - spectre-net
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "cypher-shell", "-u", "neo4j", "-p", "spectre_dev_password", "RETURN 1" ]
+      test: [ "CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
-  # Redis (Optional fallback for NATS)
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: spectre-redis
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - redis-data:/data
-  #   networks:
-  #     - spectre-net
-  #   restart: unless-stopped
+
+  # Jaeger - Distributed Tracing (OTLP receiver)
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    container_name: spectre-jaeger
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    networks:
+      - spectre-net
+    restart: unless-stopped
+
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: spectre-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - spectre-net
+    restart: unless-stopped
+
+  # Grafana - Dashboards
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: spectre-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - spectre-net
+    restart: unless-stopped
 
 volumes:
   nats-data:
@@ -92,8 +123,10 @@ volumes:
     driver: local
   neo4j-logs:
     driver: local
-  # redis-data:
-  #   driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
 
 networks:
   spectre-net:
