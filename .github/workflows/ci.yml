@@ -207,7 +207,34 @@ jobs:
             echo "WARNING: Image size exceeds 100MB target"
           fi
 
-  # Job 9: Nix container image build
+  # Job 9: SBOM generation
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v22
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Install cargo-cyclonedx
+        run: nix develop --command cargo install cargo-cyclonedx
+
+      - name: Generate SBOM
+        run: nix develop --command bash -c "export PATH=$HOME/.cargo/bin:\$PATH && cargo cyclonedx --format json"
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: sbom
+          path: crates/**/*.cdx.json
+
+  # Job 10: Nix container image build
   nix-image:
     name: Nix Container Image
     runs-on: ubuntu-latest

@@ -28,6 +28,9 @@ result-*
 *.profraw
 *.profdata
 
+# SBOM (generated in CI)
+*.cdx.json
+
 # Environment
 .env
 .env.local
