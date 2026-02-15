@@ -37,10 +37,9 @@ in
               name = "nats";
               image = "nats:2.12-alpine";
               args = [
-                "--js"
-                "--name" "spectre-nats"
-                "--http_port" "8222"
-                "--max_connections" "256"
+                "-js"
+                "-n" "spectre-nats"
+                "-m" "8222"
               ];
 
               ports = [
