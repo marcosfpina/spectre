@@ -259,8 +259,12 @@
                       exit 1
                     fi
 
-                    # Load container image to local Docker daemon (optional)
-                    if command -v docker &>/dev/null; then
+                    # Load container image
+                    if command -v kind &>/dev/null && kind get clusters 2>/dev/null | grep -q spectre; then
+                      echo "📦 Loading container image to kind cluster..."
+                      ${pkgs.docker}/bin/docker load < ${imagePackage}
+                      kind load docker-image ${imagePackage.imageName}:${imagePackage.imageTag} --name spectre-dev
+                    elif command -v docker &>/dev/null; then
                       echo "📦 Loading container image to Docker daemon..."
                       ${pkgs.skopeo}/bin/skopeo copy \
                         docker-archive:${imagePackage} \

@@ -101,8 +101,8 @@ in
         requests = { cpu = "50m"; memory = "64Mi"; };
         limits = { cpu = "200m"; memory = "256Mi"; };
       };
-      nats.url = "nats://localhost:4222";
-      neutron.url = "http://localhost:8000";
+      nats.url = "nats://nats.default.svc.cluster.local:4222";
+      neutron.url = "http://neutron.default.svc.cluster.local:8000";
       rateLimit = { rps = 1000; burst = 2000; };
       observability = {
         otlpEndpoint = "http://localhost:4317";
@@ -116,8 +116,8 @@ in
         host = "spectre-dev.local";
         tls.enabled = false;
       };
-      # Image will be set by flake
-      image = "spectre-proxy:dev";
+      # Must match nix build .#spectre-proxy-image tag
+      image = "spectre-proxy:nix-dev";
     };
 
     prod = mkConfig {

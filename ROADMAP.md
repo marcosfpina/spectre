@@ -86,7 +86,7 @@
 - [x] Validate: Event publish/subscribe patterns
 - [x] Validate: Request-reply with timeout
 - [x] Fix: `is_connected()` race condition (flush on connect)
-- [ ] Document: NATS failure scenarios
+- [x] Document: NATS failure scenarios (`crates/spectre-events/NATS_FAILURE_SCENARIOS.md`)
 
 #### #40: Local K8s Deployment
 **Status**: ✅ Done
@@ -99,8 +99,10 @@
 - [x] Test /metrics endpoint → Prometheus metrics (3 metrics exposed)
 - [x] Fix: Image tag mismatch (nix-dev vs dev), imagePullPolicy: Never
 - [x] Fix: JWT_SECRET required in K8s Secret
-- [ ] Deploy NATS in-cluster for /ready probe
-- [ ] Validate: Ingress routing with nginx-ingress controller
+- [x] Deploy NATS in-cluster for /ready probe (`nix/kubernetes/nats.nix`)
+- [x] Fix: Image tag alignment (nix-dev), configmap NATS_URL → in-cluster DNS
+- [x] Fix: Deploy script kind load support (`flake.nix`)
+- [x] Validate: Ingress routing with nginx-ingress controller (in-cluster verified)
 
 #### #42: Production Load Test
 **Status**: ✅ Done
@@ -253,7 +255,7 @@
 - **Phase 2**: Production readiness ✅ (22 tasks)
 
 ### In Progress
-- **Phase 3**: Validation & testing 🔄 (6 tasks, 5 done)
+- **Phase 3**: Validation & testing ✅ (6 tasks, 6 done)
 
 ### Planned
 - **Phase 4**: Enterprise features 📅 (5 tasks)
