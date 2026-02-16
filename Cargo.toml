@@ -34,7 +34,7 @@ tokio-stream = "0.1"
 async-trait = "0.1"
 
 # NATS client
-async-nats = "0.33"
+async-nats = "0.46"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -79,7 +79,7 @@ opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.14", features = ["metrics", "http-proto", "reqwest-client"] }
 opentelemetry-semantic-conventions = "0.13"
 tracing-opentelemetry = "0.22"
-prometheus = "0.13"
+prometheus = "0.14"
 
 # Testing
 mockall = "0.12"

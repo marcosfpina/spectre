@@ -7,7 +7,6 @@ edition = "2021"
 anyhow = { workspace = true }
 secrecy = { version = "0.8", features = ["serde"] }
 tracing = { workspace = true }
-dotenv = "0.15"
 aes-gcm = { workspace = true }
 argon2 = { workspace = true }
 rand = "0.8"
