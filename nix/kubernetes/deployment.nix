@@ -38,6 +38,8 @@ in
       metadata = {
         inherit labels;
         annotations = {
+          "linkerd.io/inject" = "enabled";
+          "config.linkerd.io/skip-outbound-ports" = "4222"; # Skip NATS protocol detection
           "prometheus.io/scrape" = "true";
           "prometheus.io/port" = "3000";
           "prometheus.io/path" = "/metrics";
