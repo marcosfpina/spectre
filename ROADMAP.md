@@ -243,7 +243,7 @@
 - [x] Test: mTLS between proxy ↔ neutron (stub neutron via `nix build .#neutron-stub-manifests`)
 - [x] Benchmark: Mesh overhead (with vs without sidecar, p50/p95/p99 delta)
 - [x] Test: Linkerd traffic policies (retries, timeouts via `nix build .#service-profile`)
-- [x] Create ADR: Service mesh adoption decision (ADR-0039)
+- [x] Create ADR: Service mesh adoption decision (ADR-0040)
 
 **mTLS Validation** (2026-02-17, kind cluster `spectre-dev`):
 ```
@@ -360,7 +360,7 @@ Formal wrk2 benchmark deferred to production neutron deployment (Phase 4).*
 - [ ] Security audit clean (no critical/high vulnerabilities)
 - [ ] Chaos tests demonstrating 99.9% uptime
 - [ ] Multi-region deployment documented
-- [x] Service mesh decision documented (ADR-0039)
+- [x] Service mesh decision documented (ADR-0040)
 
 ### Phase 5 (Advanced)
 - [ ] Auto-scaling responding to traffic spikes

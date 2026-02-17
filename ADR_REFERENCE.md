@@ -14,13 +14,23 @@ All SPECTRE architectural decisions are documented in the centralized ADR Ledger
   - Classification: Critical
   - Date: 2026-02-15
 
-- **ADR-0039**: Service Mesh Adoption — Linkerd over Istio/Cilium (in `ADR.md`)
+- **ADR-0038**: [OTLP HTTP/protobuf over gRPC/tonic](https://github.com/marcosfpina/adr-ledger/blob/main/adr/accepted/ADR-0038.md)
   - Status: ✅ Accepted
   - Classification: Major
-  - Date: 2026-02-17
+  - Date: 2026-02-15
 
-- **ADR-0040**: Phase 3→4 Transition — Stub Neutron to Production Backend (in `ADR.md`)
+- **ADR-0039**: [OTLP Trace Anomalies Investigation Backlog](https://github.com/marcosfpina/adr-ledger/blob/main/adr/proposed/ADR-0039.md)
+  - Status: 📋 Proposed
+  - Classification: Major
+  - Date: 2026-02-15
+
+- **ADR-0040**: [Service Mesh Adoption — Linkerd](https://github.com/marcosfpina/adr-ledger/blob/main/adr/accepted/ADR-0040.md)
   - Status: ✅ Accepted
+  - Classification: Major
+  - Date: 2026-02-16
+
+- **ADR-0043**: [Phase 3→4 Transition — Stub Neutron to Production Backend](https://github.com/marcosfpina/adr-ledger/blob/main/adr/proposed/ADR-0043.md)
+  - Status: 📋 Proposed
   - Classification: Major
   - Date: 2026-02-17
 
@@ -50,6 +60,9 @@ The consolidated document includes 11 architectural decisions:
 - **ADR Ledger**: https://github.com/marcosfpina/adr-ledger
 - **SPECTRE Decisions**: https://github.com/marcosfpina/adr-ledger/blob/main/docs/SPECTRE_ARCHITECTURE_DECISIONS.md
 - **ADR-0037**: https://github.com/marcosfpina/adr-ledger/blob/main/adr/accepted/ADR-0037.md
+- **ADR-0038**: https://github.com/marcosfpina/adr-ledger/blob/main/adr/accepted/ADR-0038.md
+- **ADR-0040**: https://github.com/marcosfpina/adr-ledger/blob/main/adr/accepted/ADR-0040.md
+- **ADR-0043**: https://github.com/marcosfpina/adr-ledger/blob/main/adr/proposed/ADR-0043.md
 
 ## 📖 Why Centralized?
 

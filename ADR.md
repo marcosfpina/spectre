@@ -1505,7 +1505,9 @@ tokio::select! {
 
 ---
 
-## ADR-0039: Service Mesh Adoption — Linkerd over Istio/Cilium
+## ADR-0040: Service Mesh Adoption — Linkerd over Istio/Cilium
+
+> **Formal ADR**: [ADR-0040 in adr-ledger](https://github.com/marcosfpina/adr-ledger/blob/main/adr/accepted/ADR-0040.md)
 
 **Status**: Accepted
 **Date**: 2026-02-17
@@ -1681,14 +1683,16 @@ Deferred: kind environment and current kernel constraints make it premature.
 
 ---
 
-## ADR-0040: Phase 3→4 Transition — Stub Neutron to Production Backend
+## ADR-0043: Phase 3→4 Transition — Stub Neutron to Production Backend
 
-**Status**: Accepted
+> **Formal ADR**: [ADR-0043 in adr-ledger](https://github.com/marcosfpina/adr-ledger/blob/main/adr/proposed/ADR-0043.md)
+
+**Status**: Proposed
 **Date**: 2026-02-17
 **Classification**: Major
 **Project**: SPECTRE (spectre-proxy, neutron/NEXUS)
 **Supersedes**: —
-**Related**: ADR-0039 (Service Mesh Adoption)
+**Related**: ADR-0040 (Service Mesh Adoption)
 
 ---
 
@@ -1900,7 +1904,7 @@ Three stages: shim → lite → full (this ADR).
 
 ### References
 
-- ADR-0039: Service Mesh Adoption (Linkerd)
+- ADR-0040: Service Mesh Adoption (Linkerd)
 - SPECTRE ROADMAP.md: Phase 4 Enterprise Features
 - `nix/kubernetes/neutron-stub.nix` — current Stage 0 (go-httpbin)
 - `nix/kubernetes/default.nix` — Kubernetes manifest composition
