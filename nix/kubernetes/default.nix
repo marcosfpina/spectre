@@ -87,9 +87,14 @@ let
   manifestsToYAML = manifests:
     k8sLib.mergeManifests manifests;
 
+  # Standalone mesh manifests (no spectre-proxy config dependency)
+  neutronStubManifests = import ./neutron-stub.nix { inherit lib k8sLib; };
+  serviceProfileManifests = import ./service-profile.nix { inherit lib; };
+
 in
 {
   inherit mkConfig mkManifests manifestsToYAML;
+  inherit neutronStubManifests serviceProfileManifests;
 
   # Pre-configured environments
   environments = {

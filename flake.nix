@@ -233,6 +233,17 @@
             nats-server-dev = natsModule.mkServerPackage natsModule.environments.dev;
             nats-server-prod = natsModule.mkServerPackage natsModule.environments.prod;
 
+            # Service mesh manifests
+            neutron-stub-manifests = pkgs.writeTextFile {
+              name = "neutron-stub-manifests";
+              text = k8sModule.manifestsToYAML k8sModule.neutronStubManifests;
+            };
+
+            service-profile = pkgs.writeTextFile {
+              name = "spectre-proxy-service-profile";
+              text = k8sModule.manifestsToYAML k8sModule.serviceProfileManifests;
+            };
+
             # Default package
             default = spectre-proxy;
           };
