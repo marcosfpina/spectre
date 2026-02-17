@@ -14,6 +14,16 @@ All SPECTRE architectural decisions are documented in the centralized ADR Ledger
   - Classification: Critical
   - Date: 2026-02-15
 
+- **ADR-0039**: Service Mesh Adoption — Linkerd over Istio/Cilium (in `ADR.md`)
+  - Status: ✅ Accepted
+  - Classification: Major
+  - Date: 2026-02-17
+
+- **ADR-0040**: Phase 3→4 Transition — Stub Neutron to Production Backend (in `ADR.md`)
+  - Status: ✅ Accepted
+  - Classification: Major
+  - Date: 2026-02-17
+
 ## 📋 Documented Decisions
 
 The consolidated document includes 11 architectural decisions:

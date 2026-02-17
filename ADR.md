@@ -1678,3 +1678,230 @@ Deferred: kind environment and current kernel constraints make it premature.
 - SPECTRE #45: Service Mesh Evaluation
 - `nix/kubernetes/neutron-stub.nix` — stub neutron Deployment + Service
 - `nix/kubernetes/service-profile.nix` — ServiceProfile CRD for spectre-proxy
+
+---
+
+## ADR-0040: Phase 3→4 Transition — Stub Neutron to Production Backend
+
+**Status**: Accepted
+**Date**: 2026-02-17
+**Classification**: Major
+**Project**: SPECTRE (spectre-proxy, neutron/NEXUS)
+**Supersedes**: —
+**Related**: ADR-0039 (Service Mesh Adoption)
+
+---
+
+### Context
+
+Phase 3 validated the service mesh infrastructure using a **stub neutron** — a stateless HTTP
+echo server (`ghcr.io/mccutchen/go-httpbin:v2.14.0`) deployed under the same Kubernetes service
+name (`neutron.default.svc.cluster.local:8000`) that the real backend will use.
+
+This stub was sufficient to prove:
+- mTLS between spectre-proxy ↔ neutron (SECURED = ✓ via `linkerd viz edges`)
+- Linkerd sidecar injection on both ends (2/2 containers)
+- ServiceProfile route classification (POST /ingest, GET /health)
+- Golden metrics collection (success rate, RPS, p50/p95/p99)
+
+However, the stub does **not** exercise:
+- Actual inference latency (CUDA, model loading, GPU scheduling)
+- NATS event flow end-to-end (proxy → NATS → neutron → response)
+- Circuit breaker under real failure modes (OOM, GPU exhaustion, model timeout)
+- Trace propagation across the full proxy → neutron path (W3C traceparent)
+- Realistic payload sizes (LLM request/response bodies: 1KB–100KB)
+
+Phase 4 requires replacing the stub with a production-capable neutron backend.
+
+---
+
+### Decision
+
+Adopt a **graduated replacement strategy** with three stages, each independently
+deployable and validated before proceeding to the next.
+
+---
+
+#### Stage 1: Lightweight Neutron Shim (Phase 4 entry)
+
+**Image**: Custom minimal container (Python/FastAPI or Rust/Axum)
+**Scope**: HTTP API contract + NATS consumer — no CUDA, no real inference
+
+```
+spectre-proxy → neutron-shim (HTTP :8000)
+                     ├── POST /ingest → fake inference (random latency 50-500ms)
+                     ├── GET /health → 200
+                     └── NATS subscriber: spectre.ingest.v1 → ack
+```
+
+**What it validates**:
+- Full NATS round-trip (proxy publishes → neutron consumes → response)
+- Realistic HTTP response structure (JSON with model output fields)
+- Circuit breaker under simulated failures (shim returns 500 at configurable rate)
+- Trace propagation: spectre-proxy span → neutron-shim span in Jaeger
+- Mesh overhead under sustained load (wrk2 benchmark with real payload)
+
+**Nix integration**:
+- `nix/kubernetes/neutron-shim.nix` replaces `neutron-stub.nix`
+- Same Service name, same port — zero changes to spectre-proxy config
+- Linkerd injection annotation preserved
+
+**Exit criteria**:
+- [ ] NATS publish → consume → response latency < 50ms p99
+- [ ] Circuit breaker trips at 50% error rate, recovers after 30s
+- [ ] Trace spans visible in Jaeger: `spectre-proxy` → `neutron-shim`
+- [ ] wrk2 benchmark: ≥ 10K RPS on /ingest with mesh (p99 < 20ms)
+
+---
+
+#### Stage 2: NEXUS Lite (Phase 4 mid)
+
+**Image**: Stripped NEXUS build — Python + FastAPI + Ray Serve, **no CUDA**
+**Scope**: Real inference API with CPU-only models (e.g., distilbert, small LLMs via llama.cpp CPU)
+
+```
+spectre-proxy → neutron-lite (HTTP :8000)
+                     ├── POST /ingest → real inference (CPU model, 200ms-2s)
+                     ├── GET /health → 200 + model status
+                     ├── GET /metrics → Prometheus (inference_latency, queue_depth)
+                     └── NATS: spectre.ingest.v1 → inference → spectre.result.v1
+```
+
+**What it validates**:
+- Real inference latency profiles under mesh (not fake random)
+- Memory pressure from model loading (1-4GB for CPU models)
+- Ray Serve autoscaling interaction with Linkerd load balancing
+- Request queuing behavior (burst → queue → timeout → circuit break)
+- pgvector integration for RAG context retrieval (if applicable)
+
+**Image build strategy**:
+- Multi-stage Dockerfile: Python deps in layer 1, model weights volume-mounted
+- No CUDA toolkit → image < 2GB (vs 8-12GB for full NEXUS)
+- Nix: `nix build .#neutron-lite-image` using `pkgs.dockerTools.buildLayeredImage`
+
+**Exit criteria**:
+- [ ] Inference round-trip (proxy → NATS → neutron → response) < 3s p99
+- [ ] Model hot-reload without pod restart
+- [ ] Memory stays < 4GB under sustained load
+- [ ] Mesh overhead negligible vs inference latency (< 5% of total p99)
+
+---
+
+#### Stage 3: Full NEXUS (Phase 4 exit / Phase 5 entry)
+
+**Image**: Full NEXUS with CUDA, Ray, pgvector
+**Scope**: Production deployment — GPU inference, vector search, multi-model routing
+
+```
+spectre-proxy → neutron (HTTP :8000)
+                     ├── POST /ingest → GPU inference (50ms-5s depending on model)
+                     ├── POST /embed → vector embedding
+                     ├── GET /health → 200 + GPU/VRAM status
+                     ├── GET /metrics → inference_latency, vram_usage, queue_depth
+                     └── NATS: full event schema (ingest, result, error, cost)
+```
+
+**Prerequisites**:
+- Bare-metal or GPU-enabled nodes (NVIDIA runtime, device plugin)
+- Persistent volume for model weights (50-200GB)
+- NATS JetStream for durable delivery (exactly-once on inference requests)
+
+**What changes from mesh perspective**:
+- ServiceProfile updated: POST /ingest timeout 10s → 30s (GPU inference slower)
+- RetryBudget reduced: 20% → 5% (inference is expensive, don't retry aggressively)
+- Linkerd load balancing: EWMA for latency-aware routing across GPU replicas
+
+**Exit criteria**:
+- [ ] GPU inference < 5s p99 through mesh
+- [ ] VRAM-aware routing via custom metrics (HPA + Prometheus adapter)
+- [ ] mTLS maintained with zero application changes from Stage 1
+- [ ] ServiceProfile routes updated for new endpoints (/embed, /models)
+
+---
+
+### Alternatives Considered
+
+#### Alt 1: Skip Directly to Full NEXUS (Rejected)
+
+Build and deploy the complete NEXUS image immediately.
+
+**Pros**: No intermediate steps, production-ready sooner
+**Cons**:
+- ❌ CUDA image is 8-12GB — slow build, slow kind load
+- ❌ Requires GPU node (not available in kind cluster)
+- ❌ Debugging mesh issues mixed with GPU/CUDA issues
+- ❌ Blocks Phase 4 progress until GPU infrastructure ready
+
+**Verdict**: Rejected. Coupling infrastructure validation with GPU complexity adds risk.
+
+#### Alt 2: Keep Stub Forever, Test Real Backend Outside Mesh (Rejected)
+
+Keep go-httpbin as stub, validate NEXUS separately without mesh.
+
+**Pros**: Simple, no new containers to build
+**Cons**:
+- ❌ Never validates NATS end-to-end through mesh
+- ❌ Mesh overhead under real payloads unknown until production
+- ❌ Circuit breaker behavior with real failure modes untested
+
+**Verdict**: Rejected. Defeats the purpose of Phase 3→4 graduation.
+
+#### Alt 3: Graduated Replacement (Selected) ✅
+
+Three stages: shim → lite → full (this ADR).
+
+**Pros**:
+- ✅ Each stage independently deployable and testable
+- ✅ Zero changes to spectre-proxy between stages (same Service name/port)
+- ✅ Mesh infrastructure validated incrementally under increasing realism
+- ✅ Can run in kind (stages 1-2) or bare metal (stage 3)
+
+**Verdict**: Selected. De-risks transition, validates mesh under progressively realistic conditions.
+
+---
+
+### Consequences
+
+#### Positive
+- spectre-proxy is **completely decoupled** from the neutron backend implementation —
+  any container exposing HTTP :8000 with the `neutron` Service name works
+- Each stage produces measurable validation data (latency, throughput, failure modes)
+  before committing to the next
+- Stub → shim → lite → full path means Phase 4 can start immediately without GPU hardware
+- Mesh configuration (ServiceProfile, mTLS, viz) is validated once and carried forward
+
+#### Negative / Trade-offs
+- Three container images to maintain during transition (stub, shim, lite)
+- ServiceProfile timeouts must be updated per stage (10s → 30s for GPU)
+- Stage 2 CPU inference is not representative of GPU latency — benchmarks are
+  directional, not production baselines
+
+#### What Stays the Same Across All Stages
+| Component | Value |
+|-----------|-------|
+| Service name | `neutron.default.svc.cluster.local` |
+| Service port | `8000` |
+| Linkerd injection | `linkerd.io/inject: enabled` |
+| mTLS | Automatic (SPIFFE identity) |
+| spectre-proxy config | `NEUTRON_URL=http://neutron.default.svc.cluster.local:8000` |
+| Nix package | `nix build .#neutron-{stub,shim,lite}-manifests` |
+
+---
+
+### Timeline
+
+| Stage | Target | Blockers |
+|-------|--------|----------|
+| Stage 1 (Shim) | Phase 4 start (Mar 2026) | None — can start now |
+| Stage 2 (Lite) | Phase 4 mid (Apr 2026) | NEXUS Python deps in Nix |
+| Stage 3 (Full) | Phase 4 exit (Jun 2026) | GPU nodes, NVIDIA runtime |
+
+---
+
+### References
+
+- ADR-0039: Service Mesh Adoption (Linkerd)
+- SPECTRE ROADMAP.md: Phase 4 Enterprise Features
+- `nix/kubernetes/neutron-stub.nix` — current Stage 0 (go-httpbin)
+- `nix/kubernetes/default.nix` — Kubernetes manifest composition
+- NEXUS/neutron: `~/dev/low-level/neutron/` (external repo)
