@@ -1,0 +1,5 @@
+# NKey seed for <service-name>
+# Public key: U<base32...>
+# Generate with: nix run nixpkgs#nkeys -- -gen user
+# Store in SOPS: sops -e spectre/config/nkeys/<service>.nk > spectre/config/nkeys/<service>.nk.enc
+SUAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
