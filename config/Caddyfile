@@ -1,0 +1,24 @@
+# phantom-api TLS reverse proxy (M3.2)
+# Terminates TLS on :8008, proxies to phantom-api:8000 (plain HTTP)
+#
+# For production: replace cert/key with Let's Encrypt or Vault-issued certs.
+# For dev: self-signed CA certs from secrets/tls/
+
+{
+	admin off
+}
+
+:8008 {
+	tls /etc/caddy/tls/cert.crt /etc/caddy/tls/cert.key
+
+	reverse_proxy phantom-api:8000 {
+		header_up X-Forwarded-Proto https
+		health_uri /health
+		health_interval 10s
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
