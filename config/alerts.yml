@@ -1,0 +1,217 @@
+# voidnxlabs — Spectre Stack Prometheus Alert Rules
+# Covers: phantom-api, owasaka, securellm-bridge, NATS, cerebro, spooknix
+# Mirrors SLOs from sentinel/performance/
+
+groups:
+  # ──────────────────────────────────────────────
+  # Service availability
+  # ──────────────────────────────────────────────
+  - name: spectre_availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: voidnx
+        annotations:
+          summary: "{{ $labels.service }} is down"
+          description: "{{ $labels.job }} ({{ $labels.instance }}) has been unreachable for >2m."
+          action: "docker compose ps {{ $labels.service }} && docker compose logs {{ $labels.service }} --tail=50"
+
+      - alert: ServiceFlapping
+        expr: |
+          changes(up[15m]) > 4
+        for: 1m
+        labels:
+          severity: warning
+          team: voidnx
+        annotations:
+          summary: "{{ $labels.service }} is flapping"
+          description: "{{ $labels.job }} changed state {{ $value }} times in the last 15 minutes."
+
+  # ──────────────────────────────────────────────
+  # Phantom API — SLO: P99 < 500ms, error rate < 5%
+  # ──────────────────────────────────────────────
+  - name: phantom_slo
+    interval: 30s
+    rules:
+      - alert: PhantomHighLatency
+        expr: |
+          histogram_quantile(0.99,
+            rate(phantom_request_latency_seconds_bucket[5m])
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: phantom-api
+          team: voidnx
+        annotations:
+          summary: "Phantom P99 latency exceeds 500ms SLO"
+          description: "P99 latency is {{ $value | humanizeDuration }} (SLO: 500ms)."
+          action: "Check LLM provider latency and vector search performance."
+
+      - alert: PhantomCriticalLatency
+        expr: |
+          histogram_quantile(0.99,
+            rate(phantom_request_latency_seconds_bucket[5m])
+          ) > 2.0
+        for: 2m
+        labels:
+          severity: critical
+          service: phantom-api
+          team: voidnx
+        annotations:
+          summary: "Phantom P99 latency critically high (>2s)"
+          description: "P99 latency is {{ $value | humanizeDuration }}."
+
+      - alert: PhantomHighErrorRate
+        expr: |
+          (
+            rate(phantom_requests_total{status=~"5.."}[5m])
+            /
+            rate(phantom_requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: phantom-api
+          team: voidnx
+        annotations:
+          summary: "Phantom error rate > 5%"
+          description: "Error rate is {{ $value | humanizePercentage }}."
+          action: "Check phantom logs: docker compose logs phantom-api --tail=100"
+
+      - alert: PhantomLowThroughput
+        expr: |
+          rate(phantom_requests_total[5m]) < 0.1
+        for: 10m
+        labels:
+          severity: info
+          service: phantom-api
+          team: voidnx
+        annotations:
+          summary: "Phantom receiving very few requests"
+          description: "Request rate is {{ $value }} req/s — may indicate upstream issue."
+
+  # ──────────────────────────────────────────────
+  # SecureLLM Bridge — rate limiting + audit
+  # ──────────────────────────────────────────────
+  - name: securellm_bridge
+    interval: 30s
+    rules:
+      - alert: BridgeHighRateLimitRejections
+        expr: |
+          rate(securellm_rate_limited_total[5m]) > 5
+        for: 3m
+        labels:
+          severity: warning
+          service: securellm-bridge
+          team: voidnx
+        annotations:
+          summary: "SecureLLM Bridge rejecting >5 req/s due to rate limits"
+          description: "Rate: {{ $value }} rejections/s. Possible abuse or misconfigured burst limit."
+
+      - alert: BridgeLLMProviderFailures
+        expr: |
+          rate(securellm_provider_errors_total[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          service: securellm-bridge
+          team: voidnx
+        annotations:
+          summary: "LLM provider {{ $labels.provider }} experiencing errors"
+          description: "Error rate: {{ $value }} req/s for provider {{ $labels.provider }}."
+          action: "Check API key validity and provider status page."
+
+      - alert: BridgeAllProvidersFailing
+        expr: |
+          sum(rate(securellm_requests_total{status="ok"}[5m])) == 0
+          and
+          sum(rate(securellm_requests_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: securellm-bridge
+          team: voidnx
+        annotations:
+          summary: "All LLM providers failing through SecureLLM Bridge"
+          description: "Zero successful LLM requests in last 5 minutes."
+
+  # ──────────────────────────────────────────────
+  # NATS — message bus health
+  # ──────────────────────────────────────────────
+  - name: nats_health
+    interval: 30s
+    rules:
+      - alert: NATSHighSlowConsumers
+        expr: |
+          gnatsd_varz_slow_consumers > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: nats
+          team: voidnx
+        annotations:
+          summary: "NATS has {{ $value }} slow consumers"
+          description: "Slow consumers indicate backpressure — check owasaka/phantom-soc subscribers."
+
+      - alert: NATSConnectionDrop
+        expr: |
+          delta(gnatsd_connz_total_connections[5m]) < -10
+        for: 1m
+        labels:
+          severity: warning
+          service: nats
+          team: voidnx
+        annotations:
+          summary: "NATS lost >10 connections in 5 minutes"
+          description: "Connection delta: {{ $value }}. Check service reconnect logs."
+
+      - alert: NATSHighPendingMessages
+        expr: |
+          gnatsd_subsz_num_subscriptions > 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: nats
+          team: voidnx
+        annotations:
+          summary: "NATS subscription count unusually high ({{ $value }})"
+          description: "May indicate subscription leak in a service."
+
+  # ──────────────────────────────────────────────
+  # owasaka — SIEM event throughput
+  # ──────────────────────────────────────────────
+  - name: owasaka_health
+    interval: 30s
+    rules:
+      - alert: OwasakaNoEventsPublished
+        expr: |
+          rate(owasaka_events_published_total[10m]) == 0
+        for: 15m
+        labels:
+          severity: warning
+          service: owasaka
+          team: voidnx
+        annotations:
+          summary: "owasaka has published 0 NATS events in 15 minutes"
+          description: "Expected continuous network.* events. Check DNS/discovery services."
+
+      - alert: OwasakaHighHTTPErrors
+        expr: |
+          (
+            rate(owasaka_http_requests_total{status=~"5.."}[5m])
+            /
+            rate(owasaka_http_requests_total[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: owasaka
+          team: voidnx
+        annotations:
+          summary: "owasaka HTTP error rate > 10%"
+          description: "Error rate: {{ $value | humanizePercentage }}."

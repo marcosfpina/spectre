@@ -47,7 +47,7 @@ securellm-bridge/
 
 # Empty directories removed during cleanup
 docs/
-grafana/
+# grafana/ — provisioning configs are tracked (removed by M4)
 python/
 
 # Nix modules are now tracked (contain K8s orchestration code)

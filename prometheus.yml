@@ -1,10 +1,83 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  external_labels:
+    cluster: spectre
+    env: local
+
+rule_files:
+  - "/etc/prometheus/alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []  # wire in alertmanager when available
 
 scrape_configs:
-  - job_name: "spectre-proxy"
+  # ──────────────────────────────────────────────
+  # Core services
+  # ──────────────────────────────────────────────
+
+  - job_name: phantom-api
     static_configs:
-      - targets: ["host.docker.internal:3000"]
-    metrics_path: "/metrics"
+      - targets: ["phantom-api:8000"]
+        labels:
+          service: phantom-api
+          lang: python
+    metrics_path: /metrics
     scrape_interval: 10s
+
+  - job_name: owasaka
+    static_configs:
+      - targets: ["owasaka:8080"]
+        labels:
+          service: owasaka
+          lang: go
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: securellm-bridge
+    static_configs:
+      - targets: ["securellm-bridge:8080"]
+        labels:
+          service: securellm-bridge
+          lang: rust
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: cerebro
+    static_configs:
+      - targets: ["cerebro:8000"]
+        labels:
+          service: cerebro
+          lang: python
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  - job_name: spooknix
+    static_configs:
+      - targets: ["spooknix:8000"]
+        labels:
+          service: spooknix
+          lang: python
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # ──────────────────────────────────────────────
+  # NATS — via prometheus-nats-exporter sidecar
+  # Start with: docker compose --profile observability up nats-exporter
+  # ──────────────────────────────────────────────
+  - job_name: nats
+    static_configs:
+      - targets: ["nats-exporter:7777"]
+        labels:
+          service: nats
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # ──────────────────────────────────────────────
+  # Prometheus self-monitoring
+  # ──────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
