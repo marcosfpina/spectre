@@ -1,0 +1,2 @@
+nats-py[nkeys]==2.12.0
+prometheus-client==0.22.1

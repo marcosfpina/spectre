@@ -75,6 +75,15 @@ scrape_configs:
     metrics_path: /metrics
     scrape_interval: 10s
 
+  - job_name: ai-agent-os
+    static_configs:
+      - targets: ["ai-agent-metrics-bridge:9101"]
+        labels:
+          service: ai-agent-os
+          lang: bridge
+    metrics_path: /metrics
+    scrape_interval: 10s
+
   # ──────────────────────────────────────────────
   # Prometheus self-monitoring
   # ──────────────────────────────────────────────
