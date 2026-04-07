@@ -3,6 +3,7 @@
 use crate::event::Event;
 use async_nats::{Client, ConnectOptions, ServerAddr};
 use spectre_core::{Result, SpectreError};
+use std::path::PathBuf;
 use std::time::Duration;
 use tracing::{debug, info, warn};
 
@@ -74,7 +75,7 @@ impl EventBus {
 
         // Build connection options with reconnection support
         let reconnect_delay = config.reconnect_delay;
-        let options = ConnectOptions::new()
+        let mut options = ConnectOptions::new()
             .name(&config.name)
             .retry_on_initial_connect()
             .reconnect_delay_callback(move |attempts| {
@@ -94,6 +95,50 @@ impl EventBus {
                     }
                 }
             });
+
+        if let Some(seed) = std::env::var("NATS_NKEY_SEED")
+            .ok()
+            .map(|seed| seed.trim().to_string())
+            .filter(|seed| !seed.is_empty())
+        {
+            options = options.nkey(seed);
+        } else if let Ok(path) = std::env::var("NATS_NKEY_SEED_FILE") {
+            let path = path.trim().to_string();
+            if !path.is_empty() {
+                match std::fs::read_to_string(&path) {
+                    Ok(contents) => {
+                        if let Some(seed) = contents
+                            .lines()
+                            .find(|line| !line.trim_start().starts_with('#') && !line.trim().is_empty())
+                            .map(|line| line.trim().to_string())
+                        {
+                            options = options.nkey(seed);
+                        }
+                    }
+                    Err(err) => {
+                        warn!("Cannot read NATS_NKEY_SEED_FILE {}: {}", path, err);
+                    }
+                }
+            }
+        }
+        if let Ok(ca_file) = std::env::var("NATS_CA_FILE") {
+            let ca_file = ca_file.trim().to_string();
+            if !ca_file.is_empty() {
+                options = options.add_root_certificates(PathBuf::from(ca_file));
+            }
+        }
+        let client_cert = std::env::var("NATS_CLIENT_CERT_FILE").ok();
+        let client_key = std::env::var("NATS_CLIENT_KEY_FILE").ok();
+        if let (Some(cert), Some(key)) = (client_cert, client_key) {
+            let cert = cert.trim().to_string();
+            let key = key.trim().to_string();
+            if !cert.is_empty() && !key.is_empty() {
+                options = options.add_client_certificate(PathBuf::from(cert), PathBuf::from(key));
+            }
+        }
+        if config.urls.iter().any(|url| url.starts_with("tls://")) {
+            options = options.require_tls(true);
+        }
 
         // Connect
         let client = async_nats::connect_with_options(addrs, options)

@@ -215,3 +215,100 @@ groups:
         annotations:
           summary: "owasaka HTTP error rate > 10%"
           description: "Error rate: {{ $value | humanizePercentage }}."
+
+  # ──────────────────────────────────────────────
+  # Neoland — agent pipeline SLOs
+  # SLO: P95 pipeline < 30s, agent error rate < 1%,
+  #      NATS publish success rate > 99%
+  # ──────────────────────────────────────────────
+  - name: neoland_slo
+    interval: 30s
+    rules:
+      - alert: NeolandPipelineHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(neoland_agent_pipeline_duration_seconds_bucket[5m])
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: neoland
+          team: voidnx
+        annotations:
+          summary: "Neoland agent pipeline P95 latency > 30s"
+          description: "P95 is {{ $value | humanizeDuration }}. LLM backend may be slow."
+          action: "Check neoland logs and DSPy pipeline at :8001."
+
+      - alert: NeolandPipelineCriticalLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(neoland_agent_pipeline_duration_seconds_bucket[5m])
+          ) > 120
+        for: 2m
+        labels:
+          severity: critical
+          service: neoland
+          team: voidnx
+        annotations:
+          summary: "Neoland agent pipeline P95 latency critically high (>120s)"
+          description: "P95 is {{ $value | humanizeDuration }}. Pipeline may be stalled."
+
+      - alert: NeolandAgentHighErrorRate
+        expr: |
+          (
+            rate(neoland_agent_calls_total{status="error"}[5m])
+            /
+            rate(neoland_agent_calls_total[5m])
+          ) > 0.01
+        for: 3m
+        labels:
+          severity: warning
+          service: neoland
+          team: voidnx
+        annotations:
+          summary: "Neoland agent {{ $labels.agent }} error rate > 1%"
+          description: "Agent {{ $labels.agent }} error rate: {{ $value | humanizePercentage }}."
+          action: "Check DSPy pipeline health: curl http://localhost:8001/health"
+
+      - alert: NeolandNATSPublishFailures
+        expr: |
+          (
+            rate(neoland_nats_published_total{status="error"}[5m])
+            /
+            rate(neoland_nats_published_total[5m])
+          ) > 0.01
+        for: 3m
+        labels:
+          severity: warning
+          service: neoland
+          team: voidnx
+        annotations:
+          summary: "Neoland NATS publish failures > 1%"
+          description: "Subject {{ $labels.subject }} failing at {{ $value | humanizePercentage }}."
+          action: "Check NATS connectivity: docker compose logs nats --tail=50"
+
+      - alert: NeolandHighEscalationRate
+        expr: |
+          rate(neoland_agent_escalations_total[15m]) > 0.1
+        for: 10m
+        labels:
+          severity: info
+          service: neoland
+          team: voidnx
+        annotations:
+          summary: "Neoland escalating to Architect tier frequently"
+          description: "Escalation rate: {{ $value }}/s (risk_level={{ $labels.risk_level }})."
+
+      - alert: NeolandPipelineStalled
+        expr: |
+          rate(neoland_agent_pipeline_total[15m]) == 0
+          and
+          up{job="neoland"} == 1
+        for: 20m
+        labels:
+          severity: warning
+          service: neoland
+          team: voidnx
+        annotations:
+          summary: "Neoland pipeline receiving no tasks for 20 minutes"
+          description: "Service is up but pipeline_total rate is zero — possible upstream issue."

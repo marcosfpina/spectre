@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import signal
+import ssl
 from typing import Any
 
 import nats
@@ -11,6 +12,9 @@ from prometheus_client import Counter, Gauge, start_http_server
 NATS_URL = os.getenv("NATS_URL", "nats://nats:4222")
 NATS_NKEY_SEED = os.getenv("NATS_NKEY_SEED", "").strip()
 NATS_NKEY_SEED_FILE = os.getenv("NATS_NKEY_SEED_FILE", "").strip()
+NATS_CA_FILE = os.getenv("NATS_CA_FILE", "").strip()
+NATS_CLIENT_CERT_FILE = os.getenv("NATS_CLIENT_CERT_FILE", "").strip()
+NATS_CLIENT_KEY_FILE = os.getenv("NATS_CLIENT_KEY_FILE", "").strip()
 BRIDGE_PORT = int(os.getenv("BRIDGE_PORT", "9101"))
 SUBJECT = os.getenv("AI_AGENT_METRICS_SUBJECT", "system.metrics.v1")
 
@@ -70,6 +74,14 @@ async def run() -> None:
                     break
     if nkey_seed:
         connect_kwargs["nkeys_seed_str"] = nkey_seed
+    if NATS_URL.startswith("tls://") or NATS_CA_FILE or NATS_CLIENT_CERT_FILE or NATS_CLIENT_KEY_FILE:
+        tls_context = ssl.create_default_context(cafile=NATS_CA_FILE or None)
+        if NATS_CLIENT_CERT_FILE and NATS_CLIENT_KEY_FILE:
+            tls_context.load_cert_chain(
+                certfile=NATS_CLIENT_CERT_FILE,
+                keyfile=NATS_CLIENT_KEY_FILE,
+            )
+        connect_kwargs["tls"] = tls_context
 
     nc = await nats.connect(**connect_kwargs)
 

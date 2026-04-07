@@ -85,6 +85,19 @@ scrape_configs:
     scrape_interval: 10s
 
   # ──────────────────────────────────────────────
+  # Neoland — control plane (Rust) + agent pipeline metrics
+  # REST server exposes /metrics (prometheus-client-rust)
+  # ──────────────────────────────────────────────
+  - job_name: neoland
+    static_configs:
+      - targets: ["neoland:8080"]
+        labels:
+          service: neoland
+          lang: rust
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # ──────────────────────────────────────────────
   # Prometheus self-monitoring
   # ──────────────────────────────────────────────
   - job_name: prometheus
