@@ -58,3 +58,19 @@ O pipeline de telemetria alimenta a evolução da "Mente" do cluster (os modelos
 
 ---
 *Este Spec define a visão do sistema MLOps e Enxame de Agentes. O desenvolvimento seguirá a arquitetura do projeto SPECTRE.*
+### D. Stateless Knowledge Engine (CEREBRO RAG Integration)
+
+A peça central que torna o Enxame verdadeiramente poderoso é a integração com o **CEREBRO** (nossa engine de RAG).
+Em vez de os Agentes manterem estado interno (quebrando quando os Pods reiniciam), todo o conhecimento do cluster é **Stateless** do ponto de vista do Agente, mas persistentemente vetorizado no CEREBRO.
+
+1. **Memória Efêmera vs. Conhecimento Cristalizado:**
+   - **Agentes (Pods):** São *stateless*. Eles nascem para uma `BrainstormSession`, debatem, geram código/specs e morrem. Não guardam estado interno.
+   - **CEREBRO (RAG Engine):** É o banco de memória de longo prazo (Vector DB + Knowledge Graph). Ele indexa todas as decisões arquiteturais passadas, logs de erros resolvidos, specs do SPECTRE e a documentação do NixOS (`/etc/nixos/docs`).
+
+2. **O Fluxo RAG na Prática:**
+   - Quando o *Architect* começa a desenhar uma solução, ele consulta o CEREBRO: *"Quais foram os problemas que tivemos da última vez que tentamos configurar o WireGuard no K3s?"*
+   - O CEREBRO injeta o contexto exato e relevante (chunks de logs passados e commits do Git) no prompt do *Architect*, garantindo que ele não cometa o mesmo erro duas vezes.
+   - Ao final da sessão, a nova solução aprovada é automaticamente vetorizada e "cristalizada" no CEREBRO para sessões futuras.
+
+3. **O Paradigma 'Zero-Shot Evolution':**
+   - Como os Agentes não precisam ser re-treinados (Fine-Tuning) para cada pequeno detalhe do seu ambiente, a evolução se torna incrivelmente rápida. O Fine-Tuning pesadão (descrito na Seção B) fica reservado apenas para ensinar aos modelos *como* raciocinar melhor (skills), enquanto o CEREBRO cuida de *o que* eles sabem (fatos e contexto do seu cluster).
